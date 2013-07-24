@@ -1,6 +1,12 @@
 var fs = require('graceful-fs');
 var test = require('tap').test;
 var glob = require('../');
+var libpath = require('path');
+
+var win32Drive = process.cwd();
+while (win32Drive !== libpath.dirname(win32Drive)) {
+  win32Drive = libpath.dirname(win32Drive);
+}
 
 test('mock fs', function(t) {
   var stat = fs.stat
@@ -9,12 +15,15 @@ test('mock fs', function(t) {
   var readdirSync = fs.readdirSync
 
   function fakeStat(path) {
-    var ret
-    switch (path.toLowerCase()) {
-      case '/tmp': case '/tmp/': case 'c:\\tmp': case 'c:\\tmp\\':
+    var ret,
+        win32TmpDir = libpath.join(win32Drive, 'tmp').toLowerCase(),
+        win32ADir = libpath.join(win32Drive, 'tmp/a').toLowerCase();
+    path = path.toLowerCase();
+    switch (path) {
+      case '/tmp': case '/tmp/': case win32TmpDir: case win32TmpDir + '\\':
         ret = { isDirectory: function() { return true } }
         break
-      case '/tmp/a': case 'c:\\tmp\\a':
+      case '/tmp/a': case win32ADir:
         ret = { isDirectory: function() { return false } }
         break
     }
@@ -37,12 +46,14 @@ test('mock fs', function(t) {
   }
 
   function fakeReaddir(path) {
-    var ret
-    switch (path.toLowerCase()) {
-      case '/tmp': case '/tmp/': case 'c:\\tmp': case 'c:\\tmp\\':
+    var ret,
+        win32TmpDir = libpath.join(win32Drive, 'tmp').toLowerCase();
+    path = path.toLowerCase();
+    switch (path) {
+      case '/tmp': case '/tmp/': case win32TmpDir: case win32TmpDir + '\\':
         ret = [ 'a', 'A' ]
         break
-      case '/': case 'c:\\':
+      case '/': case win32Drive.toLowerCase():
         ret = ['tmp', 'tMp', 'tMP', 'TMP']
     }
     return ret
@@ -76,9 +87,11 @@ test('nocase, nomagic', function(t) {
                '/tMp/a',
                '/tmp/A',
                '/tmp/a' ]
+
   if(process.platform.match(/^win/)) {
     want = want.map(function(p) {
-      return 'C:' + p
+      var normPath = libpath.join(win32Drive, p);
+      return normPath.replace(/\\/g, '/');
     })
   }
   glob('/tmp/a', { nocase: true }, function(er, res) {
@@ -107,7 +120,8 @@ test('nocase, with some magic', function(t) {
                '/tmp/a' ]
   if(process.platform.match(/^win/)) {
     want = want.map(function(p) {
-      return 'C:' + p
+      var normPath = libpath.join(win32Drive, p);
+      return normPath.replace(/\\/g, '/');
     })
   }
 
